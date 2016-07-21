@@ -1,0 +1,28 @@
+Multipath Hardening Patch
+Index: multipath-tools/kpartx/Makefile
+===================================================================
+--- multipath-tools.orig/kpartx/Makefile	2015-07-16 16:02:47.499852169 +0530
++++ multipath-tools/kpartx/Makefile	2015-07-16 16:02:47.499852169 +0530
+@@ -12,7 +12,7 @@
+ 	CFLAGS += -DLIBDM_API_COOKIE
+ endif
+ 
+-LDFLAGS = -ldevmapper
++LDFLAGS += -ldevmapper
+ OBJS = bsd.o dos.o kpartx.o solaris.o unixware.o dasd.o sun.o \
+        gpt.o mac.o ps3.o crc32.o lopart.o xstrncpy.o devmapper.o
+ EXEC = kpartx
+Index: multipath-tools/Makefile.inc
+===================================================================
+--- multipath-tools.orig/Makefile.inc	2015-07-16 16:02:47.499852169 +0530
++++ multipath-tools/Makefile.inc	2015-07-16 16:02:47.499852169 +0530
+@@ -54,7 +54,8 @@
+ endif
+ 
+ OPTFLAGS     = $(RPM_OPT_FLAGS) -Wunused -Wstrict-prototypes
+-CFLAGS	     = $(OPTFLAGS) -fPIC -DLIB_STRING=\"${LIB}\"
++CFLAGS	     = $(shell dpkg-buildflags --get CFLAGS) $(shell dpkg-buildflags --get CPPFLAGS) $(OPTFLAGS) -fPIC -DLIB_STRING=\"${LIB}\"
++LDFLAGS     = $(shell dpkg-buildflags --get LDFLAGS)
+ SHARED_FLAGS = -shared
+ 
+ %.o:	%.c

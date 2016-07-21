@@ -1,0 +1,128 @@
+#!/usr/bin/make -f
+
+INITRAMFS=$(CURDIR)/debian/multipath-tools-boot/usr/share/initramfs-tools/
+
+ifeq (,$(findstring nostrip,$(DEB_BUILD_OPTIONS)))
+        INSTALL_PROGRAM = install -s
+else
+        INSTALL_PROGRAM = install
+endif
+
+# Work around misp(el) linker bug:
+# http://sources.redhat.com/bugzilla/show_bug.cgi?id=10144
+DEB_HOST_ARCH=$(shell dpkg-architecture -qDEB_HOST_ARCH)
+ifneq (,$(findstring mips,$(DEB_HOST_ARCH)))
+  OPTFLAGS = "OPTFLAGS=-pipe -Wall -Wunused -Wstrict-prototypes"
+endif
+
+# For Hardening
+export DEB_BUILD_MAINT_OPTIONS = hardening=+all
+DPKG_EXPORT_BUILDFLAGS = 1
+include /usr/share/dpkg/buildflags.mk
+#
+
+# Uncomment this to turn on verbose mode.
+#export DH_VERBOSE=1
+
+build: build-arch build-indep
+
+build-arch: build-multipath-udeb-stamp build-stamp
+build-indep: 
+
+build-stamp: clean-tree
+	dh_testdir
+
+	[ ! -f kpartx/kpartx.rules ] || cp kpartx/kpartx.rules debian/kpartx.udev
+
+	$(MAKE) $(OPTFLAGS) LIB=/lib SYSTEMDPATH=/lib USE_SYSTEMD=1
+
+	touch $@
+
+# multipath-udeb: build separately; don't reference dynamic libgcc at runtime (#779579)
+build-multipath-udeb-stamp:
+	dh_testdir
+
+	DEB_CFLAGS_MAINT_APPEND="-static-libgcc" CFLAGS_DISABLE_FEXCEPTIONS=1 $(MAKE) $(OPTFLAGS) LIB=/lib USE_SYSTEMD=0
+
+	# store files for install target
+	mkdir -p $(CURDIR)/debian/tmp-multipath-udeb/sbin
+	$(MAKE) install INSTALL_PROGRAM=$(INSTALL_PROGRAM) DESTDIR=$(CURDIR)/debian/tmp-multipath-udeb LIB=/lib USE_SYSTEMD=0
+
+	touch $@
+
+clean-tree:
+	$(MAKE) clean
+
+clean: clean-tree
+	dh_testdir
+	rm -f build-stamp build-multipath-udeb-stamp
+	dh_prep
+	debconf-updatepo
+	rm -rf debian/*.debhelper.log
+	rm -rf debian/tmp-multipath-udeb
+
+install-indep:
+	dh_testdir
+	dh_testroot
+	dh_prep
+	dh_installdirs
+
+	# initramfs stuff:
+	install -D -m 755 debian/initramfs/hooks $(INITRAMFS)/hooks/multipath
+	install -D -m 755 debian/initramfs/kpartx.hook $(CURDIR)/debian/kpartx-boot/usr/share/initramfs-tools/hooks/kpartx
+	install -D -m 755 debian/initramfs/local-premount \
+		$(INITRAMFS)/scripts/local-premount/multipath
+	install -D -m 755 debian/initramfs/local-bottom \
+		$(INITRAMFS)/scripts/local-bottom/multipath
+	install -D -m 755 debian/initramfs/init-top \
+		$(INITRAMFS)/scripts/init-top/multipath
+	# reportbug:
+	for pkg in "multipath-tools" "multipath-tools-boot"; do \
+	    install -D -m 755 debian/reportbug/script debian/$${pkg}/usr/share/bug/$${pkg}/script; \
+	done
+
+
+install: install-indep
+	dh_testdir
+	dh_testroot
+	dh_installdirs
+
+	mkdir -p $(CURDIR)/debian/tmp/sbin
+	$(MAKE) install INSTALL_PROGRAM=$(INSTALL_PROGRAM) DESTDIR=$(CURDIR)/debian/tmp LIB=/lib SYSTEMDPATH=/lib USE_SYSTEMD=1
+	install -m 755 debian/dmsetup_env $(CURDIR)/debian/tmp/lib/udev/
+	dh_install -X.rules --fail-missing -Nmultipath-udeb --sourcedir=$(CURDIR)/debian/tmp
+	dh_install -Xkpartx_id -X.rules -X.service -X.socket --fail-missing -pmultipath-udeb --sourcedir=$(CURDIR)/debian/tmp-multipath-udeb
+
+binary-indep: build-indep install-indep
+
+# Build architecture-dependent files here.
+binary-arch: build install
+	dh_testdir
+	dh_testroot
+	dh_installchangelogs ChangeLog
+	dh_installdocs
+	dh_installexamples
+	dh_lintian
+	dh_systemd_enable -pmultipath-tools multipathd.service
+	dh_installinit -pmultipath-tools
+	dh_installinit -pmultipath-tools --name=multipath-tools-boot --no-start -- start 21 S .
+	dh_installudev -pkpartx --priority=95
+	dh_installudev -pmultipath-tools --name=dm-mpath-lvm --priority=56
+	dh_link lib/systemd/system/multipathd.service \
+		lib/systemd/system/multipath-tools.service
+	dh_systemd_start -pmultipath-tools multipathd.service
+	dh_installdebconf -pmultipath-tools-boot
+	dh_installman
+	dh_makeshlibs --add-udeb=multipath-udeb
+	dh_link
+	dh_strip --dbg-package=multipath-tools-dbg
+	dh_compress
+	dh_fixperms
+	dh_installdeb
+	dh_shlibdeps
+	dh_gencontrol
+	dh_md5sums
+	dh_builddeb
+
+binary:	binary-indep binary-arch
+.PHONY: binary binary-arch binary-indep unpack configure build clean 

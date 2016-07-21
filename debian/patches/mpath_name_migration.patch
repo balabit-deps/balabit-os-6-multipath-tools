@@ -1,0 +1,148 @@
+From: Mathieu Trudel-Lapierre <mathieu.trudel-lapierre@canonical.com>
+Subject: Provide a binary to translate from the old device naming scheme
+
+Version 0.5.0 changes the way devices are being numbered in multipath: it used
+to be based on an ID number that would be tacked on whatever the device prefix
+would be (usually mpath), to form something like 'mpath0'.
+
+Now, rather than appending a number, we append a letter that designates the
+same ID. Use pre-existing code (copied) to map from the ID to the right letter
+and prefix, providing a binary we can call from postinst to do the necessary
+translations for upgrades.
+
+The binary will be shipped anyway, available for those who might need to do
+further changes to configuration files.
+
+---
+ multipath/Makefile        |    8 ++-
+ multipath/mpath_migrate.c |   97 ++++++++++++++++++++++++++++++++++++++++++++++
+ 2 files changed, 103 insertions(+), 2 deletions(-)
+
+--- a/multipath/Makefile
++++ b/multipath/Makefile
+@@ -11,7 +11,10 @@
+ 
+ EXEC = multipath
+ 
+-all: $(EXEC)
++all: $(EXEC) multipath_migrate
++
++multipath_migrate: mpath_migrate.o
++	$(CC) $(CFLAGS) -o $@ $<
+ 
+ $(EXEC): $(OBJS)
+ 	$(CC) $(CFLAGS) $(OBJS) -o $(EXEC) $(LDFLAGS)
+@@ -21,6 +24,7 @@
+ install:
+ 	$(INSTALL_PROGRAM) -d $(DESTDIR)$(bindir)
+ 	$(INSTALL_PROGRAM) -m 755 $(EXEC) $(DESTDIR)$(bindir)/
++	$(INSTALL_PROGRAM) -m 755 multipath_migrate $(DESTDIR)$(bindir)/
+ 	$(INSTALL_PROGRAM) -d $(DESTDIR)$(udevrulesdir)
+ 	$(INSTALL_PROGRAM) -m 644 11-dm-mpath.rules $(DESTDIR)$(udevrulesdir)
+ 	$(INSTALL_PROGRAM) -m 644 $(EXEC).rules $(DESTDIR)$(libudevdir)/rules.d/56-multipath.rules
+@@ -37,4 +41,4 @@
+ 	rm $(DESTDIR)$(man5dir)/$(EXEC).conf.5.gz
+ 
+ clean:
+-	rm -f core *.o $(EXEC) *.gz
++	rm -f core *.o $(EXEC) *.gz multipath_migrate
+--- /dev/null
++++ b/multipath/mpath_migrate.c
+@@ -0,0 +1,97 @@
++/*
++ * Copyright (c) 2015 Canonical Ltd.
++ *
++ * Author: Mathieu Trudel-Lapierre <mathieu@canonical.com>
++ *
++ * This program is distributed in the hope that it will be useful,
++ * but WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
++ * See the GNU General Public License for more details.
++ *
++ * This program is free software; you can redistribute it and/or
++ * modify it under the terms of the GNU General Public License
++ * as published by the Free Software Foundation; either version
++ * 2 of the License, or (at your option) any later version.
++ */
++
++#include <stdio.h>
++#include <stdlib.h>
++#include <string.h>
++#include <ctype.h>
++
++/* The format_devname function has been copied from libmultipath/alias.c */
++static int
++format_devname(char *name, int id, int len, char *prefix)
++{
++        int pos;
++        int prefix_len = strlen(prefix);
++
++        memset(name, 0, len);
++        strcpy(name, prefix);
++        for (pos = len - 1; pos >= prefix_len; pos--) {
++                id--;
++                name[pos] = 'a' + id % 26;
++                if (id < 26)
++                        break;
++                id /= 26;
++        }
++        memmove(name + prefix_len, name + pos, len - pos);
++        name[prefix_len + len - pos] = '\0';
++        return (prefix_len + len - pos);
++}
++
++int
++get_id_prefix(char *old_name, char **prefix)
++{
++	char *p;
++	int id = -1;
++	int i;
++
++	for (i = strlen(old_name) - 1; i >= 0; i--) {
++		p = (old_name + i + 1);
++		if (!isdigit(old_name[i]))
++			break;
++	}
++
++	if (isdigit(*p)) {
++		id = atoi(p) + 1;
++		*prefix = strndup(old_name, strlen(old_name) - strlen(p));
++	}
++
++	return id;
++}
++
++int main (int argc, char *argv[])
++{
++	char *old_name;
++	char *new_name = NULL;
++	char *prefix = NULL;
++	int id, len;
++	int status = EXIT_FAILURE;
++
++	if (argc != 2) {
++		fprintf(stderr, "Usage: %s <mpath>\n", argv[0]);
++		goto out;
++	}
++
++	old_name = argv[1];
++
++	id = get_id_prefix(old_name, &prefix);
++	if (id < 0)
++		goto out;
++
++	len = strlen(old_name);
++	new_name = calloc(len, sizeof(*new_name));
++	format_devname(new_name, id, len, prefix);
++
++	printf("%s\n", new_name);
++
++	status = EXIT_SUCCESS;
++out:
++	if (prefix)
++		free(prefix);
++	if (new_name)
++		free(new_name);
++
++	return status;
++}

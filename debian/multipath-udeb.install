@@ -1,0 +1,3 @@
+/sbin/multipath
+/lib/multipath/
+/lib/libmultipath.so.*

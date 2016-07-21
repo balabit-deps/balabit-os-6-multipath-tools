@@ -1,0 +1,4 @@
+
+Tests: kpartx-file-loopback
+Depends: kpartx, qemu-utils, gdisk
+Restrictions: needs-root

@@ -1,0 +1,42 @@
+From 7dcf982221f1aa63226babaee2c41d8b0652b6d8 Mon Sep 17 00:00:00 2001
+From: Dragan Stancevic <dragan.stancevic@canonical.com>
+Date: Thu, 23 Jun 2016 15:29:37 -0500
+Subject: [PATCH 1/1] multipath-tools: fix dm- device filtering
+
+During "service multipath-tools start" /sbin/multipath is
+called on dm- devices that are filtered but due to a condition
+conf->dev_type == DEV_DEVNODE in filtering code multipath
+binary wasn't dropping out when hitting a dm- device. This
+was due to the fact that in this case conf->dev_type is
+set to DEV_UEVENT.
+
+This is causing the logs to be filled with following
+messages:
+
+multipath: dm-6: failed to get udev uid: Invalid argument
+multipath: dm-6: failed to get sysfs uid: Invalid argument
+multipath: dm-6: failed to get sgio uid: No such file or directory
+
+This change alows the filtering to happen.
+
+Cc: Christophe Varoqui <christophe.varoqui@opensvc.com>
+Cc: device-mapper development <dm-devel@redhat.com>
+
+Signed-off-by: Dragan Stancevic <dragan.stancevic@canonical.com>
+Applied-Upstream: http://git.opensvc.com/gitweb.cgi?p=multipath-tools/.git;a=commit;h=16984d8660d190da2b252722d83ce7e22e451bb1
+---
+ multipath/main.c | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
+
+--- a/multipath/main.c
++++ b/multipath/main.c
+@@ -267,7 +267,8 @@
+ 	/*
+ 	 * if we have a blacklisted device parameter, exit early
+ 	 */
+-	if (dev && conf->dev_type == DEV_DEVNODE &&
++	if (dev && (conf->dev_type == DEV_DEVNODE ||
++		    conf->dev_type == DEV_UEVENT) &&
+ 	    conf->cmd != CMD_REMOVE_WWID &&
+ 	    (filter_devnode(conf->blist_devnode,
+ 			    conf->elist_devnode, dev) > 0)) {

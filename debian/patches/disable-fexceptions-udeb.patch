@@ -1,0 +1,17 @@
+From: Mauricio Faria de Oliveira <mauricfo@linux.vnet.ibm.com>
+Subject: Make the use of -fexceptions conditional.
+Last-Update: 2015-09-09
+
+--- a/Makefile.inc
++++ b/Makefile.inc
+@@ -60,6 +60,10 @@
+ LDFLAGS     = $(shell dpkg-buildflags --get LDFLAGS)
+ SHARED_FLAGS = -shared
+ 
++ifdef CFLAGS_DISABLE_FEXCEPTIONS
++	CFLAGS := $(filter-out -fexceptions,$(CFLAGS))
++endif
++
+ %.o:	%.c
+ 	$(CC) $(CFLAGS) -c -o $@ $<
+ 

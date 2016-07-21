@@ -1,0 +1,41 @@
+From: Mathieu Trudel-Lapierre <mathieu.trudel-lapierre@canonical.com>
+Subject: Fix kpartx some more to correctly remove loopback devices on delete.
+Bug-Ubuntu: https://bugs.launchpad.net/ubuntu/+source/multipath-tools/+bug/1543430
+
+Loop devices get created when using kpartx with an image file, but should be
+removed afterwards when using kpartx -d. Unfortunately, the devmapper maps
+did get removed but not the losetup nodes behind it, which were still bound
+to the image file. This is because we re-stat the loop device once we've
+figured which one to use, since otherwise we wouldn't have major and minor
+numbers for a loopback file; yet we need those to create the devmapper maps
+reliably.
+
+Instead of checking if we're dealing with a regular type file (since after
+stat() we'd not have the S_ISREG check succeed since we stat()'ed a device),
+use the loopdev variable. It's equivalent to device but only set if we've been
+called to work on an image.
+
+---
+ kpartx/kpartx.c |    4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+--- a/kpartx/kpartx.c
++++ b/kpartx/kpartx.c
+@@ -451,7 +451,7 @@
+ 					printf("del devmap : %s\n", partname);
+ 			}
+ 
+-			if (S_ISREG (buf.st_mode)) {
++			if (loopdev) {
+ 				if (del_loop(device)) {
+ 					if (verbose)
+ 						printf("can't del loop : %s\n",
+@@ -610,7 +610,7 @@
+ 		if (n > 0)
+ 			break;
+ 	}
+-	if (what == LIST && loopcreated && S_ISREG (buf.st_mode)) {
++	if (what == LIST && loopcreated && loopdev) {
+ 		if (fd != -1)
+ 			close(fd);
+ 		if (del_loop(device)) {

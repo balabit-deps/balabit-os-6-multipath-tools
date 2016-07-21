@@ -1,0 +1,32 @@
+From: Mauricio Faria de Oliveira <mauricfo@linux.vnet.ibm.com>
+Subject: [dm-devel] [PATCH] libmultipath: fix discovery of devices with sysfs attr containing only spaces
+
+commit 43c61e979521b17d9f50ea8e722682c33d0b7d69 causes sysfs_get_<attr>() to
+return 0 if attr contains only spaces, and scsi_sysfs_pathinfo() to return 1
+in 'if (sysfs_get_<attr>() <= 0)'; this breaks the device's discovery.
+
+Changing the comparison operator '<=' to '<' allows discovery to continue.
+
+This affects some IPR controllers (rev sysfs attr):
+
+	# grep . /sys/block/sda/device/{vendor,model,rev} | tr ' ' '#'
+	/sys/block/sda/device/vendor:IBM#####
+	/sys/block/sda/device/model:IPR-0###5EC99A00
+	/sys/block/sda/device/rev:####
+
+Signed-off-by: Mauricio Faria de Oliveira <mauricfo linux vnet ibm com>
+---
+ libmultipath/discovery.c |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+--- a/libmultipath/discovery.c
++++ b/libmultipath/discovery.c
+@@ -1218,7 +1218,7 @@
+ 
+ 	condlog(3, "%s: product = %s", pp->dev, pp->product_id);
+ 
+-	if (sysfs_get_rev(parent, pp->rev, SCSI_REV_SIZE) <= 0)
++	if (sysfs_get_rev(parent, pp->rev, SCSI_REV_SIZE) < 0)
+ 		return 1;
+ 
+ 	condlog(3, "%s: rev = %s", pp->dev, pp->rev);

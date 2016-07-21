@@ -1,0 +1,10 @@
+/sbin/multi*
+/sbin/mpathpersist
+/lib/multipath/*
+/lib/libmultipath.so.*
+/lib/libmpathpersist.so*
+/usr/share/man/man*/multi*gz
+/usr/share/man/man*/mpath*gz
+/usr/include/mpath_persist.h
+/lib/systemd/system/multipathd.service
+/lib/systemd/system/multipathd.socket
