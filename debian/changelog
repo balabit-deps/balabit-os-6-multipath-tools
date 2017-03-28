@@ -1,3 +1,26 @@
+multipath-tools (0.5.0+git1.656f8865-5ubuntu2.5) xenial; urgency=medium
+
+  * debian/initramfs/hooks: drop dm-emc (it hasn't existed since 2.6.27) and
+    add dm-queue-length: it's required on some hardware, such as XtremIO, where
+    it is the default path selector. (LP: #1673350)
+
+ -- Mathieu Trudel-Lapierre <cyphermox@ubuntu.com>  Tue, 28 Mar 2017 09:58:21 -0400
+
+multipath-tools (0.5.0+git1.656f8865-5ubuntu2.4) xenial; urgency=medium
+
+  * debian/patches/wait-for-udev-in-dm_simplecmd_noflush.patch:
+    - Cherrypick from upstream: wait for udev in dm_simplecmd_noflush().
+      (LP: #1621340)
+
+ -- Hua Zhang <joshua.zhang@canonical.com>  Thu, 09 Feb 2017 20:08:57 +0800
+
+multipath-tools (0.5.0+git1.656f8865-5ubuntu2.3) xenial; urgency=medium
+
+  * Cherrypick from upstream:
+    - Use 64-bit int for command key (LP: #1611360)
+
+ -- Jon Grimm <jon.grimm@canonical.com>  Mon, 07 Nov 2016 17:04:42 +0100
+
 multipath-tools (0.5.0+git1.656f8865-5ubuntu2.2) xenial; urgency=medium
 
   * multipath-tools: fix dm- device filtering

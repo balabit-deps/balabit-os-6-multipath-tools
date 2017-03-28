@@ -17,3 +17,5 @@ git-kpartx-support-spaces-in-dev-names-b407050a.patch
 kpartx_more_loopback_fixes.patch
 enable-find-multipaths.patch
 0001-multipath-tools-fix-dm-device-filtering.patch
+0001-multipathd-use-64-bit-int-for-command-key.patch
+wait-for-udev-in-dm_simplecmd_noflush.patch

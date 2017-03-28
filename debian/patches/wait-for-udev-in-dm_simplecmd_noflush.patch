@@ -1,0 +1,38 @@
+From f99464031273ea325ab8ae56fb12b6f42f81b2b7 Mon Sep 17 00:00:00 2001
+From: Hannes Reinecke <hare@suse.de>
+Date: Mon, 9 May 2016 12:53:02 +0200
+Subject: [PATCH] devmapper: wait for udev in dm_simplecmd_noflush()
+
+When calling dm_simplecmd_noflush() with udev_flags set we
+need to set the 'need_sync' flag otherwise the udev flags
+will never be set.
+
+Origin: upstream, http://git.opensvc.com/gitweb.cgi?p=multipath-tools/.git;a=commit;h=f9946403
+Bug: LP: #1621340
+Signed-off-by: Hannes Reinecke <hare@suse.com>
+---
+ libmultipath/configure.c | 6 ++++--
+ 1 file changed, 4 insertions(+), 2 deletions(-)
+
+--- multipath-tools-0.5.0+git1.656f8865.orig/libmultipath/configure.c
++++ multipath-tools-0.5.0+git1.656f8865/libmultipath/configure.c
+@@ -624,7 +624,7 @@ domap (struct multipath * mpp, char * pa
+ 		r = dm_addmap_reload(mpp, params);
+ 		if (r)
+ 			r = dm_simplecmd_noflush(DM_DEVICE_RESUME, mpp->alias,
+-						 0, MPATH_UDEV_RELOAD_FLAG);
++						 1, MPATH_UDEV_RELOAD_FLAG);
+ 		break;
+ 
+ 	case ACT_RESIZE:
+@@ -642,7 +642,9 @@ domap (struct multipath * mpp, char * pa
+ 		if (r) {
+ 			r = dm_addmap_reload(mpp, params);
+ 			if (r)
+-				r = dm_simplecmd_noflush(DM_DEVICE_RESUME, mpp->alias, 0, MPATH_UDEV_RELOAD_FLAG);
++				r = dm_simplecmd_noflush(DM_DEVICE_RESUME,
++							 mpp->alias, 1,
++							 MPATH_UDEV_RELOAD_FLAG);
+ 		}
+ 		break;
+ 

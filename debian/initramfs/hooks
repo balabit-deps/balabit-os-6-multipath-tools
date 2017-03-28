@@ -67,7 +67,7 @@ mkdir -p $DESTDIR/var/run
 add_bindings
 add_wwids
 
-for x in dm-multipath dm-service-time dm-round-robin dm-emc; do
+for x in dm-multipath dm-service-time dm-round-robin dm-queue-length; do
 	manual_add_modules ${x}
 done
 
